@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Jenkins-events-handlers by KuraudoTama</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Jenkins-events-handlers</h1>
+      <h2 class="project-tagline"></h2>
+      <a href="https://github.com/KuraudoTama/jenkins-events-handlers" class="btn">View on GitHub</a>
+      <a href="https://github.com/KuraudoTama/jenkins-events-handlers/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/KuraudoTama/jenkins-events-handlers/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <h1>
+<a id="jenkins-events-handlers" class="anchor" href="#jenkins-events-handlers" aria-hidden="true"><span class="octicon octicon-link"></span></a>jenkins-events-handlers</h1>
+
+<p>This project listens on the ZMQ events from <a href="https://git.openstack.org/cgit/openstack-infra/zmq-event-publisher">zmq-event-publisher</a> to perform various actions upon custom rules.</p>
+
+<h2>
+<a id="how-to-setup" class="anchor" href="#how-to-setup" aria-hidden="true"><span class="octicon octicon-link"></span></a>How to Setup</h2>
+
+<p></p>
+
+<p>Make up your own configuration:</p>
+
+<pre><code>cp config.yaml.sample config.yaml
+vim config.yaml
+</code></pre>
+
+<p>The next section will describe how to compose this file</p>
+
+<p>Start the service, the service will be running in a screen called "slack_zmq" that you can detach and attach at any time:</p>
+
+<pre><code>./start_listener.sh
+</code></pre>
+
+<p>You may also stop the service using <code>stop_listener.sh</code> and restart it using <code>restart_listener.sh</code></p>
+
+<h2>
+<a id="compose-configyaml" class="anchor" href="#compose-configyaml" aria-hidden="true"><span class="octicon octicon-link"></span></a>Compose config.yaml</h2>
+
+<h3>
+<a id="configure-the-zmq-publish-address-of-the-jenkins-master" class="anchor" href="#configure-the-zmq-publish-address-of-the-jenkins-master" aria-hidden="true"><span class="octicon octicon-link"></span></a>Configure the ZMQ Publish Address of the Jenkins Master</h3>
+
+<p>The ZMQ publish address can be configured with one line as a top element in the YAML file:</p>
+
+<div class="highlight highlight-source-ruby"><pre>zmq<span class="pl-k">-</span><span class="pl-c1">address:</span> <span class="pl-s"><span class="pl-pds">'</span>tcp://&lt;your jenkins master&gt;:5555<span class="pl-pds">'</span></span></pre></div>
+
+<h3>
+<a id="configure-the-jenkins-master-information" class="anchor" href="#configure-the-jenkins-master-information" aria-hidden="true"><span class="octicon octicon-link"></span></a>Configure the Jenkins Master Information</h3>
+
+<p>The Jenkins master information is described with 3 lines of YAML code, an example:</p>
+
+<div class="highlight highlight-source-ruby"><pre><span class="pl-c1">jenkins_url:</span> <span class="pl-c1">http:</span><span class="pl-sr"><span class="pl-pds">//</span></span><span class="pl-k">&lt;</span>your jenkins master<span class="pl-k">&gt;</span>:<span class="pl-c1">8080</span><span class="pl-k">/</span>
+<span class="pl-c1">jenkins_username:</span> <span class="pl-c1">Joshua</span>
+<span class="pl-c1">jenkins_password:</span> passw0rd</pre></div>
+
+<h3>
+<a id="enable-the-event-handlers" class="anchor" href="#enable-the-event-handlers" aria-hidden="true"><span class="octicon octicon-link"></span></a>Enable the Event Handlers</h3>
+
+<p>For now there are 2 handlers in this project, jenkins-flow-analyzer(<code>jenkins_flow_analyzer.py</code>) and jenkins-slack-publisher(<code>jenkins_slack_publisher.py</code>), you may enable one or both in the <code>handlers</code> section:</p>
+
+<div class="highlight highlight-source-ruby"><pre><span class="pl-c1">handlers:</span>
+  <span class="pl-k">-</span> jenkins<span class="pl-k">-</span>flow<span class="pl-k">-</span>analyzer
+  <span class="pl-k">-</span> jenkins<span class="pl-k">-</span>slack<span class="pl-k">-</span>publisher</pre></div>
+
+<h3>
+<a id="configure-jenkins-slack-publisher" class="anchor" href="#configure-jenkins-slack-publisher" aria-hidden="true"><span class="octicon octicon-link"></span></a>Configure jenkins-slack-publisher</h3>
+
+<p>The configuration of jenkins-slack-publisher is described in <code>jenkins-slack-publisher</code> top element.</p>
+
+<p>Configure the name, token, and as-user (if true, the bot will be displayed as a human user of the token) of the bots in <code>bots</code>.</p>
+
+<p>Configure the rules in the <code>rules</code> section. Each rule consists of 4 parts:</p>
+
+<ul>
+<li>name-pattern: should be a Python regex to match the Jenkins job names</li>
+<li>match-any: a "key" path to match the data in the event, the event will be handled if any entry is matched</li>
+<li>bot: the bot name to publish the event</li>
+<li>channel: the channel to publish the event</li>
+</ul>
+
+<p>A event from zmq-event-publisher is like:</p>
+
+<pre><code>{"name":"Build_VM","url":"job/Build_VM/","build":{"full_url":"http://&lt;jenkins_url&gt;:8080/job/Build_VM/2357/","number":2357,"phase":"FINISHED","status":"FAILURE","url":"job/Build_VM/2357/","parameters":{"index":"36"},"node_name":"","host_name":"192.168.122.1"}}
+</code></pre>
+
+<p>So if you want to match the host_name in the example above, you should write the rule like:</p>
+
+<div class="highlight highlight-source-ruby"><pre>      match<span class="pl-k">-</span><span class="pl-c1">any:</span>
+        <span class="pl-k">-</span> build.parameters.<span class="pl-c1">host_name:</span> <span class="pl-s"><span class="pl-pds">'</span>192.168.122.1<span class="pl-pds">'</span></span></pre></div>
+
+<p>The code will search for the value using the path <code>build-&gt;parameters-&gt;host_name</code> upon the event.</p>
+
+<p>A sample configuration:</p>
+
+<div class="highlight highlight-source-ruby"><pre>jenkins<span class="pl-k">-</span>slack<span class="pl-k">-</span><span class="pl-c1">publisher:</span>
+  <span class="pl-c1">bots:</span>
+    <span class="pl-k">-</span> <span class="pl-c1">name:</span> bot<span class="pl-k">-</span>joshua
+      <span class="pl-c1">token:</span> <span class="pl-s"><span class="pl-pds">'</span>&lt;your slack token&gt;<span class="pl-pds">'</span></span>
+      as<span class="pl-k">-</span><span class="pl-c1">user:</span> <span class="pl-c1">true</span>
+    <span class="pl-k">-</span> <span class="pl-c1">name:</span> bot<span class="pl-k">-</span>delivery
+      <span class="pl-c1">token:</span> <span class="pl-s"><span class="pl-pds">'</span>&lt;your slack token&gt;<span class="pl-pds">'</span></span>
+  <span class="pl-c1">rules:</span>
+    <span class="pl-k">-</span> name<span class="pl-k">-</span><span class="pl-c1">pattern:</span> <span class="pl-s"><span class="pl-pds">'</span>^\Flow_(Deploy|Update|Refresh|Deployment|Destroy)$<span class="pl-pds">'</span></span>
+      match<span class="pl-k">-</span><span class="pl-c1">any:</span>
+        <span class="pl-k">-</span> build.parameters.<span class="pl-c1">index:</span> <span class="pl-s"><span class="pl-pds">'</span>26<span class="pl-pds">'</span></span>
+        <span class="pl-k">-</span> build.parameters.<span class="pl-c1">index:</span> <span class="pl-s"><span class="pl-pds">'</span>32<span class="pl-pds">'</span></span>
+        <span class="pl-k">-</span> build.parameters.<span class="pl-c1">index:</span> <span class="pl-s"><span class="pl-pds">'</span>48<span class="pl-pds">'</span></span>
+      <span class="pl-c1">bot:</span> bot<span class="pl-k">-</span>joshua
+      <span class="pl-c1">channel:</span> <span class="pl-s"><span class="pl-pds">'</span>#test-everything<span class="pl-pds">'</span></span>
+
+    <span class="pl-k">-</span> name<span class="pl-k">-</span><span class="pl-c1">pattern:</span> <span class="pl-s"><span class="pl-pds">'</span>^Build_(Baremetal|VM)$<span class="pl-pds">'</span></span>
+      match<span class="pl-k">-</span><span class="pl-c1">any:</span>
+        <span class="pl-k">-</span> build.parameters.<span class="pl-c1">index:</span> <span class="pl-s"><span class="pl-pds">'</span>36<span class="pl-pds">'</span></span>
+        <span class="pl-k">-</span> build.parameters.<span class="pl-c1">index:</span> <span class="pl-s"><span class="pl-pds">'</span>48<span class="pl-pds">'</span></span>
+      <span class="pl-c1">bot:</span> bot<span class="pl-k">-</span>joshua
+      <span class="pl-c1">channel:</span> <span class="pl-s"><span class="pl-pds">'</span>#test-everything<span class="pl-pds">'</span></span>
+
+    <span class="pl-k">-</span> name<span class="pl-k">-</span><span class="pl-c1">pattern:</span> <span class="pl-s"><span class="pl-pds">'</span>^\Flow_Pipeline_(Refresh|Update)$<span class="pl-pds">'</span></span>
+      <span class="pl-c1">bot:</span> bot<span class="pl-k">-</span>delivery
+      <span class="pl-c1">channel:</span> <span class="pl-s"><span class="pl-pds">'</span>#deliver-everything<span class="pl-pds">'</span></span></pre></div>
+
+<h3>
+<a id="configure-jenkins-flow-analyzer-optional" class="anchor" href="#configure-jenkins-flow-analyzer-optional" aria-hidden="true"><span class="octicon octicon-link"></span></a>Configure jenkins-flow-analyzer (Optional)</h3>
+
+<p><strong>Important Note</strong>: This handler only applies to the flow jobs used in ICOS since there is some special logic in the flows so that the handler can analyze.</p>
+
+<p>The configuration of jenkins-flow-analyzer is described in <code>jenkins-flow-analyzer</code> top element.</p>
+
+<p>Configure the name, token, channel and as-user (if true, the bot will be displayed as a human user of the token) in <code>slack</code>.</p>
+
+<p>Configure the Jenkins build flows in the <code>flows</code> section.</p>
+
+<div class="highlight highlight-source-ruby"><pre>jenkins<span class="pl-k">-</span>flow<span class="pl-k">-</span><span class="pl-c1">analyzer:</span>
+  <span class="pl-c1">slack:</span>
+    <span class="pl-c1">name:</span> bot<span class="pl-k">-</span>joshua
+    <span class="pl-c1">token:</span> <span class="pl-s"><span class="pl-pds">'</span>&lt;your slack token&gt;<span class="pl-pds">'</span></span>
+    <span class="pl-c1">channel:</span> <span class="pl-s"><span class="pl-pds">'</span>#test-everything<span class="pl-pds">'</span></span>
+    as<span class="pl-k">-</span><span class="pl-c1">user:</span> <span class="pl-c1">true</span>
+  <span class="pl-c1">flows:</span>
+    <span class="pl-k">-</span> <span class="pl-c1">Flow_Deploy</span>
+    <span class="pl-k">-</span> <span class="pl-c1">Flow_Update</span>
+    <span class="pl-k">-</span> <span class="pl-c1">Flow_Refresh</span></pre></div>
+
+<h3>
+<a id="a-working-sample" class="anchor" href="#a-working-sample" aria-hidden="true"><span class="octicon octicon-link"></span></a>A Working Sample</h3>
+
+<div class="highlight highlight-source-ruby"><pre>zmq<span class="pl-k">-</span><span class="pl-c1">address:</span> <span class="pl-s"><span class="pl-pds">'</span>tcp://&lt;your jenkins master&gt;:5555<span class="pl-pds">'</span></span>
+
+<span class="pl-c1">jenkins_url:</span> <span class="pl-c1">http:</span><span class="pl-sr"><span class="pl-pds">//</span></span><span class="pl-k">&lt;</span>your jenkins master<span class="pl-k">&gt;</span>:<span class="pl-c1">8080</span><span class="pl-k">/</span>
+<span class="pl-c1">jenkins_username:</span> <span class="pl-c1">Joshua</span>
+<span class="pl-c1">jenkins_password:</span> passw0rd
+
+<span class="pl-c1">handlers:</span>
+  <span class="pl-k">-</span> jenkins<span class="pl-k">-</span>flow<span class="pl-k">-</span>analyzer
+  <span class="pl-k">-</span> jenkins<span class="pl-k">-</span>slack<span class="pl-k">-</span>publisher
+
+<span class="pl-c1">bots:</span>
+  <span class="pl-k">-</span> <span class="pl-c1">name:</span> bot<span class="pl-k">-</span>joshua
+    <span class="pl-c1">token:</span> <span class="pl-s"><span class="pl-pds">'</span>&lt;your slack token&gt;<span class="pl-pds">'</span></span>
+
+jenkins<span class="pl-k">-</span>flow<span class="pl-k">-</span><span class="pl-c1">analyzer:</span>
+  <span class="pl-c1">slack:</span>
+    <span class="pl-c1">name:</span> bot<span class="pl-k">-</span>joshua
+    <span class="pl-c1">token:</span> <span class="pl-s"><span class="pl-pds">'</span>&lt;your slack token&gt;<span class="pl-pds">'</span></span>
+    <span class="pl-c1">channel:</span> <span class="pl-s"><span class="pl-pds">'</span>#test-everything<span class="pl-pds">'</span></span>
+    as<span class="pl-k">-</span><span class="pl-c1">user:</span> <span class="pl-c1">true</span>
+  <span class="pl-c1">flows:</span>
+  <span class="pl-k">-</span> <span class="pl-c1">Flow_Deploy</span>
+  <span class="pl-k">-</span> <span class="pl-c1">Flow_Update</span>
+  <span class="pl-k">-</span> <span class="pl-c1">Flow_Refresh</span>
+
+jenkins<span class="pl-k">-</span>slack<span class="pl-k">-</span><span class="pl-c1">publisher:</span>
+  <span class="pl-c1">bots:</span>
+    <span class="pl-k">-</span> <span class="pl-c1">name:</span> bot<span class="pl-k">-</span>joshua
+      <span class="pl-c1">token:</span> <span class="pl-s"><span class="pl-pds">'</span>&lt;your slack token&gt;<span class="pl-pds">'</span></span>
+      as<span class="pl-k">-</span><span class="pl-c1">user:</span> <span class="pl-c1">true</span>
+    <span class="pl-k">-</span> <span class="pl-c1">name:</span> bot<span class="pl-k">-</span>delivery
+      <span class="pl-c1">token:</span> <span class="pl-s"><span class="pl-pds">'</span>&lt;your slack token&gt;<span class="pl-pds">'</span></span>
+  <span class="pl-c1">rules:</span>
+    <span class="pl-k">-</span> name<span class="pl-k">-</span><span class="pl-c1">pattern:</span> <span class="pl-s"><span class="pl-pds">'</span>^\Flow_(Deploy|Update|Refresh|Deployment|Destroy)$<span class="pl-pds">'</span></span>
+      match<span class="pl-k">-</span><span class="pl-c1">any:</span>
+        <span class="pl-k">-</span> build.parameters.<span class="pl-c1">index:</span> <span class="pl-s"><span class="pl-pds">'</span>26<span class="pl-pds">'</span></span>
+        <span class="pl-k">-</span> build.parameters.<span class="pl-c1">index:</span> <span class="pl-s"><span class="pl-pds">'</span>32<span class="pl-pds">'</span></span>
+        <span class="pl-k">-</span> build.parameters.<span class="pl-c1">index:</span> <span class="pl-s"><span class="pl-pds">'</span>48<span class="pl-pds">'</span></span>
+      <span class="pl-c1">bot:</span> bot<span class="pl-k">-</span>joshua
+      <span class="pl-c1">channel:</span> <span class="pl-s"><span class="pl-pds">'</span>#test-everything<span class="pl-pds">'</span></span>
+
+    <span class="pl-k">-</span> name<span class="pl-k">-</span><span class="pl-c1">pattern:</span> <span class="pl-s"><span class="pl-pds">'</span>^Build_(Baremetal|VM)$<span class="pl-pds">'</span></span>
+      match<span class="pl-k">-</span><span class="pl-c1">any:</span>
+        <span class="pl-k">-</span> build.parameters.<span class="pl-c1">index:</span> <span class="pl-s"><span class="pl-pds">'</span>36<span class="pl-pds">'</span></span>
+        <span class="pl-k">-</span> build.parameters.<span class="pl-c1">index:</span> <span class="pl-s"><span class="pl-pds">'</span>48<span class="pl-pds">'</span></span>
+      <span class="pl-c1">bot:</span> bot<span class="pl-k">-</span>joshua
+      <span class="pl-c1">channel:</span> <span class="pl-s"><span class="pl-pds">'</span>#test-everything<span class="pl-pds">'</span></span>
+
+    <span class="pl-k">-</span> name<span class="pl-k">-</span><span class="pl-c1">pattern:</span> <span class="pl-s"><span class="pl-pds">'</span>^\Flow_(Refresh|Update)$<span class="pl-pds">'</span></span>
+      <span class="pl-c1">bot:</span> bot<span class="pl-k">-</span>delivery
+      <span class="pl-c1">channel:</span> <span class="pl-s"><span class="pl-pds">'</span>#deliver-everything<span class="pl-pds">'</span></span></pre></div>
+
+<h2>
+<a id="limitations-and-future-plans" class="anchor" href="#limitations-and-future-plans" aria-hidden="true"><span class="octicon octicon-link"></span></a>Limitations and Future Plans</h2>
+
+<h3>
+<a id="limitations" class="anchor" href="#limitations" aria-hidden="true"><span class="octicon octicon-link"></span></a>Limitations</h3>
+
+<p>Currently this service has the following limitations:</p>
+
+<ul>
+<li>Only one Jenkins master is supported.</li>
+<li>The configuration file can only be named as <code>config.yaml</code>.</li>
+<li>The jenkins-flow-analyzer is not applicable for general Jenkins build flow analysis.</li>
+<li>The architecture is not flexible enough for easy extension</li>
+</ul>
+
+<h3>
+<a id="future-plans" class="anchor" href="#future-plans" aria-hidden="true"><span class="octicon octicon-link"></span></a>Future Plans</h3>
+
+<ul>
+<li>Using Slack WebSocket instead of APIs to reduce communication cost.</li>
+<li>Support multiple Jenkins masters.</li>
+<li>Refactor the architecture to support easier extension/integration.</li>
+</ul>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/KuraudoTama/jenkins-events-handlers">Jenkins-events-handlers</a> is maintained by <a href="https://github.com/KuraudoTama">KuraudoTama</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
