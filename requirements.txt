@@ -1,0 +1,4 @@
+jenkinsapi
+PyYaml
+pyzmq
+six

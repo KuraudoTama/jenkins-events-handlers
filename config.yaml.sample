@@ -1,0 +1,51 @@
+zmq-address: 'tcp://<your jenkins master>:5555'
+
+jenkins_url: http://<your jenkins master>:8080/
+jenkins_username: Joshua
+jenkins_password: passw0rd
+
+handlers:
+  - jenkins-flow-analyzer
+  - jenkins-slack-publisher
+
+bots:
+  - name: bot-joshua
+    token: '<your slack token>'
+
+jenkins-flow-analyzer:
+  slack:
+    name: bot-joshua
+    token: '<your slack token>'
+    channel: '#test-everything'
+    as-user: true
+  flows:
+  - Flow_Deploy
+  - Flow_Update
+  - Flow_Refresh
+
+jenkins-slack-publisher:
+  bots:
+    - name: bot-joshua
+      token: '<your slack token>'
+      as-user: true
+    - name: bot-delivery
+      token: '<your slack token>'
+  rules:
+    - name-pattern: '^\Flow_(Deploy|Update|Refresh|Deployment|Destroy)$'
+      match-any:
+        - build.parameters.index: '26'
+        - build.parameters.index: '32'
+        - build.parameters.index: '48'
+      bot: bot-joshua
+      channel: '#test-everything'
+
+    - name-pattern: '^Build_(Baremetal|VM)$'
+      match-any:
+        - build.parameters.index: '36'
+        - build.parameters.index: '48'
+      bot: bot-joshua
+      channel: '#test-everything'
+
+    - name-pattern: '^\Flow_(Refresh|Update)$'
+      bot: bot-delivery
+      channel: '#deliver-everything'
